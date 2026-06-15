@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { defaultTimeoutSeconds } from "../providers/codexProvider.js";
+import { normalizeOpenAiCompatibleBaseUrl } from "../utils/openAiCompatibleBaseUrl.js";
 
 const execFileAsync = promisify(execFile);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -13,6 +14,8 @@ const localEnvPath = path.join(projectRoot, ".env.local");
 export const providerPrinciple = "谁本地运行，谁本地配置，谁承担额度。";
 
 const defaultProvider = "mock";
+const modelListTimeoutMs = 15000;
+const connectionTestTimeoutMs = 30000;
 
 function hasOpenAiKey() {
   return Boolean(
@@ -41,8 +44,8 @@ function maskKeyStatus() {
 
 function getApiProviderDefaults() {
   return {
-    baseUrl: process.env.BIDFORGE_API_BASE_URL ?? process.env.BIDFORGE_OPENAI_COMPATIBLE_BASE_URL ?? "https://api.openai.com/v1",
-    model: process.env.BIDFORGE_API_MODEL ?? process.env.BIDFORGE_OPENAI_COMPATIBLE_MODEL ?? "gpt-4.1-mini",
+    baseUrl: normalizeOpenAiCompatibleBaseUrl(process.env.BIDFORGE_API_BASE_URL ?? process.env.BIDFORGE_OPENAI_COMPATIBLE_BASE_URL ?? ""),
+    model: process.env.BIDFORGE_API_MODEL ?? process.env.BIDFORGE_OPENAI_COMPATIBLE_MODEL ?? "",
     maxOutputTokens: Number(
       process.env.BIDFORGE_API_MAX_OUTPUT_TOKENS ?? process.env.BIDFORGE_OPENAI_COMPATIBLE_MAX_OUTPUT_TOKENS ?? 1000,
     ),
@@ -57,6 +60,7 @@ function normalizeNumber(value, fallback) {
 
 function assertConfigInput(input) {
   const baseUrl = String(input?.baseUrl ?? "").trim();
+  let normalizedBaseUrl = "";
   const model = String(input?.model ?? "").trim();
   const maxOutputTokens = normalizeNumber(input?.maxOutputTokens, 1000);
   const temperature = normalizeNumber(input?.temperature, 0.4);
@@ -81,7 +85,8 @@ function assertConfigInput(input) {
   }
 
   try {
-    const url = new URL(baseUrl);
+    normalizedBaseUrl = normalizeOpenAiCompatibleBaseUrl(baseUrl);
+    const url = new URL(normalizedBaseUrl);
     if (!["http:", "https:"].includes(url.protocol)) {
       throw new Error("invalid protocol");
     }
@@ -110,7 +115,7 @@ function assertConfigInput(input) {
   }
 
   return {
-    baseUrl,
+    baseUrl: normalizedBaseUrl,
     apiKey,
     model,
     maxOutputTokens,
@@ -134,7 +139,7 @@ function getOpenAiRuntimeConfig(input = {}) {
   const temperature = normalizeNumber(input.temperature, baseDefaults.temperature);
 
   return {
-    baseUrl: baseUrl.replace(/\/+$/, ""),
+    baseUrl: normalizeOpenAiCompatibleBaseUrl(baseUrl),
     apiKey,
     model,
     maxOutputTokens,
@@ -194,6 +199,24 @@ function createConnectionError(message, statusCode = 500, detail = {}) {
   return error;
 }
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function isAbortError(error) {
+  return error?.name === "AbortError";
+}
+
 function parseModelsPayload(payload) {
   const models = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload?.models) ? payload.models : [];
 
@@ -227,6 +250,68 @@ function getChatContent(payload) {
   }
 
   return "";
+}
+
+function createPingRequestBody(config, tokenLimitParam = "max_completion_tokens") {
+  return {
+    model: config.model,
+    messages: [
+      {
+        role: "user",
+        content: "ping",
+      },
+    ],
+    [tokenLimitParam]: 5,
+    stream: false,
+  };
+}
+
+function shouldRetryWithAlternateTokenLimit(response, bodyText) {
+  if (response.status !== 400) {
+    return false;
+  }
+
+  return /max_tokens|max_completion_tokens|unsupported|not supported|invalid/i.test(String(bodyText ?? ""));
+}
+
+function logLiteConnectionPayload(endpoint, payload, tokenLimitParam) {
+  console.info(
+    "[BIDFORGE] Lite connection test payload",
+    JSON.stringify(
+      {
+        endpoint,
+        tokenLimitParam,
+        payload,
+        omitted: ["Authorization header", "API Key"],
+        note: "No system prompt, no tools, no response_format, no history/context, no skill or project prompt.",
+      },
+      null,
+      2,
+    ),
+  );
+}
+
+async function testConnectionLite(config, tokenLimitParam = "max_completion_tokens") {
+  const endpoint = `${config.baseUrl}/chat/completions`;
+  const payload = createPingRequestBody(config, tokenLimitParam);
+  logLiteConnectionPayload(endpoint, payload, tokenLimitParam);
+
+  const response = await fetchWithTimeout(endpoint, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${config.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  }, connectionTestTimeoutMs);
+  const body = await readJsonResponse(response);
+
+  return {
+    response,
+    body,
+    tokenLimitParam,
+    requestPayloadDebug: payload,
+  };
 }
 
 async function readJsonResponse(response) {
@@ -458,15 +543,21 @@ export async function fetchOpenAiCompatibleModels(input) {
   let body;
 
   try {
-    response = await fetch(`${config.baseUrl}/models`, {
+    response = await fetchWithTimeout(`${config.baseUrl}/models`, {
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
       },
-    });
+    }, modelListTimeoutMs);
     body = await readJsonResponse(response);
   } catch (error) {
-    throw createConnectionError(error instanceof Error ? `无法连接模型列表接口：${error.message}` : "无法连接模型列表接口。", 502, {
+    const message = isAbortError(error)
+      ? `获取模型列表超时（${Math.round(modelListTimeoutMs / 1000)} 秒），请检查 Base URL、网络或服务商状态。`
+      : error instanceof Error
+        ? `无法连接模型列表接口：${error.message}`
+        : "无法连接模型列表接口。";
+    throw createConnectionError(message, 502, {
       source: "GET /models",
+      timeoutMs: modelListTimeoutMs,
     });
   }
 
@@ -508,35 +599,32 @@ export async function testOpenAiCompatibleConnection(input) {
   const startedAt = Date.now();
   let response;
   let body;
+  let tokenLimitParam = "max_completion_tokens";
+  let requestPayloadDebug;
 
   try {
-    response = await fetch(`${config.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: config.model,
-        messages: [
-          {
-            role: "system",
-            content: "只输出 BIDFORGE_OK，不要输出任何解释。",
-          },
-          {
-            role: "user",
-            content: "请只输出：BIDFORGE_OK",
-          },
-        ],
-        max_tokens: 16,
-        temperature: 0,
-        stream: false,
-      }),
-    });
-    body = await readJsonResponse(response);
+    const firstAttempt = await testConnectionLite(config, "max_completion_tokens");
+    response = firstAttempt.response;
+    body = firstAttempt.body;
+    tokenLimitParam = firstAttempt.tokenLimitParam;
+    requestPayloadDebug = firstAttempt.requestPayloadDebug;
+
+    if (!response.ok && shouldRetryWithAlternateTokenLimit(response, body.text)) {
+      const secondAttempt = await testConnectionLite(config, "max_tokens");
+      response = secondAttempt.response;
+      body = secondAttempt.body;
+      tokenLimitParam = secondAttempt.tokenLimitParam;
+      requestPayloadDebug = secondAttempt.requestPayloadDebug;
+    }
   } catch (error) {
-    throw createConnectionError(error instanceof Error ? `无法连接测试接口：${error.message}` : "无法连接测试接口。", 502, {
+    const message = isAbortError(error)
+      ? `测试连接超时（${Math.round(connectionTestTimeoutMs / 1000)} 秒），请检查 Base URL、模型或服务商状态。`
+      : error instanceof Error
+        ? `无法连接测试接口：${error.message}`
+        : "无法连接测试接口。";
+    throw createConnectionError(message, 502, {
       source: "POST /chat/completions",
+      timeoutMs: connectionTestTimeoutMs,
     });
   }
 
@@ -556,16 +644,6 @@ export async function testOpenAiCompatibleConnection(input) {
       source: "POST /chat/completions",
       httpStatus: response.status,
       durationMs,
-    });
-  }
-
-  const ok = content.includes("BIDFORGE_OK");
-  if (!ok) {
-    throw createConnectionError("测试请求返回内容不符合预期，请检查模型是否兼容 Chat Completions。", 502, {
-      source: "POST /chat/completions",
-      httpStatus: response.status,
-      durationMs,
-      outputPreview: content.slice(0, 100),
     });
   }
 
@@ -589,8 +667,10 @@ export async function testOpenAiCompatibleConnection(input) {
     keyConfigured: true,
     durationMs,
     usage,
-    outputPreview: "BIDFORGE_OK",
-    message: "连接测试成功。",
+    outputPreview: content.slice(0, 100),
+    tokenLimitParam,
+    requestPayloadDebug,
+    message: content.toLowerCase().includes("ok") ? "轻量 ping 测试成功。" : "轻量 ping 测试成功，模型返回了非空内容。",
   };
 }
 

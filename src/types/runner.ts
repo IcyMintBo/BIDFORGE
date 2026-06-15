@@ -18,6 +18,8 @@ export interface RunnerTaskInput {
   model?: string;
   maxOutputTokens?: number;
   temperature?: number;
+  materialsConfirmed?: boolean;
+  materialsConfirmedAt?: string | null;
 }
 
 export interface RunnerTaskResult {
@@ -60,6 +62,8 @@ export interface RunnerTaskResult {
   isMockRun?: boolean;
   isCodexWorkspace?: boolean;
   isTaskPack?: boolean;
+  materialsConfirmed?: boolean;
+  materialsConfirmedAt?: string | null;
   apiCalled?: boolean;
   subsectionSummary?: {
     enabled?: boolean;

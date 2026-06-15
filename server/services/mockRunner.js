@@ -365,7 +365,18 @@ function renderSubsectionRows(subsectionSummary) {
     .join("\n");
 }
 
-function buildAuditorResult({ providerKey, providerResult, error, status, subsectionSummary, runMode, displayMode, apiConfig }) {
+function buildAuditorResult({
+  providerKey,
+  providerResult,
+  error,
+  status,
+  subsectionSummary,
+  runMode,
+  displayMode,
+  apiConfig,
+  materialsConfirmed = false,
+  materialsConfirmedAt = "",
+}) {
   const rawMeta = getRawMeta(providerResult, error);
   const success = status === "success";
   const providerName = providerResult?.providerName ?? error?.providerName ?? getProviderDisplayName(providerKey);
@@ -416,6 +427,8 @@ ${renderSubsectionRows(subsectionSummary)}
 | 前台模式 | ${tableValue(displayModeLabel)} |
 | displayMode | ${tableValue(currentDisplayMode)} |
 | runMode | ${tableValue(runMode ?? "")} |
+| materialsConfirmed | ${materialsConfirmed ? "是" : "否"} |
+| materialsConfirmedAt | ${tableValue(materialsConfirmedAt)} |
 | Provider 名称 | ${tableValue(providerName)} |
 | Model 名称 | ${tableValue(modelName)} |
 | Provider 执行状态 | ${success ? "成功" : "失败"} |
@@ -785,6 +798,8 @@ async function createSubsectionBatchRun({
       runMode,
       displayMode: taskBase.displayMode,
       apiConfig,
+      materialsConfirmed: taskBase.materialsConfirmed,
+      materialsConfirmedAt: taskBase.materialsConfirmedAt,
     }),
     runDir,
     files,
@@ -916,6 +931,8 @@ async function createApiSingleSubsectionRun({
         runMode,
         displayMode: taskBase.displayMode,
         apiConfig,
+        materialsConfirmed: taskBase.materialsConfirmed,
+        materialsConfirmedAt: taskBase.materialsConfirmedAt,
       }),
       runDir,
       files,
@@ -968,6 +985,8 @@ async function createApiSingleSubsectionRun({
       runMode,
       displayMode: taskBase.displayMode,
       apiConfig,
+      materialsConfirmed: taskBase.materialsConfirmed,
+      materialsConfirmedAt: taskBase.materialsConfirmedAt,
     }),
     runDir,
     files,
@@ -1152,6 +1171,8 @@ async function createTaskPackRun({
       runMode,
       displayMode: taskBase.displayMode,
       apiConfig,
+      materialsConfirmed: taskBase.materialsConfirmed,
+      materialsConfirmedAt: taskBase.materialsConfirmedAt,
     }),
     runDir,
     files,
@@ -1280,7 +1301,7 @@ async function createCompactRun({
       },
       generationTrace,
       draftMarkdown: failedDraft,
-      auditorMarkdown: buildAuditorResult({ providerKey, error, status: "failed", runMode, displayMode: taskBase.displayMode, apiConfig }),
+      auditorMarkdown: buildAuditorResult({ providerKey, error, status: "failed", runMode, displayMode: taskBase.displayMode, apiConfig, materialsConfirmed: taskBase.materialsConfirmed, materialsConfirmedAt: taskBase.materialsConfirmedAt }),
       runDir,
       files,
     });
@@ -1325,7 +1346,7 @@ async function createCompactRun({
     },
     generationTrace,
     draftMarkdown: markdown,
-    auditorMarkdown: buildAuditorResult({ providerKey, providerResult, status: "success", runMode, displayMode: taskBase.displayMode, apiConfig }),
+    auditorMarkdown: buildAuditorResult({ providerKey, providerResult, status: "success", runMode, displayMode: taskBase.displayMode, apiConfig, materialsConfirmed: taskBase.materialsConfirmed, materialsConfirmedAt: taskBase.materialsConfirmedAt }),
     runDir,
     files,
   });
@@ -1418,6 +1439,8 @@ export async function createMockRun(input) {
     provider: providerKey,
     providerName: providerInfo.providerName,
     modelName: providerInfo.modelName,
+    materialsConfirmed: Boolean(input.materialsConfirmed),
+    materialsConfirmedAt: input.materialsConfirmedAt ?? null,
     taskId,
     createdAt,
   };

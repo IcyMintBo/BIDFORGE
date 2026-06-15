@@ -275,6 +275,7 @@
   }
 
   .system-panel-overlay,
+  .forge-confirm-overlay,
   .export-overlay {
     position: fixed;
     inset: 0;
@@ -289,6 +290,14 @@
 
   .export-overlay {
     background: rgba(18, 16, 15, 0.38);
+    color: #12100f;
+  }
+
+  .forge-confirm-overlay {
+    z-index: 130;
+    background:
+      radial-gradient(circle at 28% 18%, rgba(216, 234, 140, 0.16), transparent 28%),
+      rgba(18, 16, 15, 0.42);
     color: #12100f;
   }
 
@@ -478,6 +487,221 @@
     font-weight: 950;
   }
 
+  .forge-confirm-dialog {
+    width: min(500px, calc(100vw - 42px));
+    border: 3px solid #12100f;
+    border-radius: 9px;
+    background:
+      radial-gradient(circle at 1px 1px, rgba(18, 16, 15, 0.055) 1px, transparent 0) 0 0 / 13px 13px,
+      #fff6dc;
+    box-shadow: 8px 8px 0 rgba(18, 16, 15, 0.32);
+    overflow: hidden;
+    animation: window-pop-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .forge-confirm-titlebar {
+    min-height: 74px;
+    padding: 13px 16px;
+    border-bottom: 3px solid #12100f;
+    background:
+      radial-gradient(circle at 1px 1px, rgba(18, 16, 15, 0.06) 1px, transparent 0) 0 0 / 9px 9px,
+      #ead9ff;
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr) 38px;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .forge-confirm-icon {
+    width: 48px;
+    height: 48px;
+    border: 2px solid #12100f;
+    border-radius: 8px;
+    background: #fff8e9;
+    display: inline-grid;
+    place-items: center;
+    box-shadow: 3px 3px 0 rgba(18, 16, 15, 0.2);
+  }
+
+  .forge-confirm-titlebar small {
+    display: block;
+    margin-bottom: 3px;
+    font-size: 12px;
+    line-height: 1;
+    font-weight: 950;
+  }
+
+  .forge-confirm-titlebar h2 {
+    margin: 0;
+    font-size: 24px;
+    line-height: 1.05;
+    font-weight: 1000;
+  }
+
+  .forge-confirm-close {
+    width: 34px;
+    height: 34px;
+    border: 2px solid #12100f;
+    border-radius: 7px;
+    background: #ffe1ef;
+    display: inline-grid;
+    place-items: center;
+    box-shadow: 2px 2px 0 rgba(18, 16, 15, 0.24);
+  }
+
+  .forge-confirm-body {
+    padding: 17px 18px 12px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .forge-confirm-card {
+    padding: 13px 14px;
+    border: 2px solid #12100f;
+    border-radius: 8px;
+    background: #fff1b8;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    align-items: center;
+    gap: 11px;
+    box-shadow: 3px 3px 0 rgba(18, 16, 15, 0.18);
+  }
+
+  .forge-confirm-card p,
+  .forge-confirm-note {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.55;
+    font-weight: 900;
+  }
+
+  .forge-confirm-note {
+    color: rgba(18, 16, 15, 0.72);
+  }
+
+  .forge-confirm-actions {
+    padding: 0 18px 18px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  .forge-confirm-primary,
+  .forge-confirm-secondary {
+    min-height: 40px;
+    padding: 0 18px;
+    border: 2px solid #12100f;
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 1000;
+    box-shadow: 2px 2px 0 rgba(18, 16, 15, 0.32);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    gap: 7px;
+  }
+
+  .forge-confirm-primary {
+    background: #d8ea8c;
+  }
+
+  .forge-confirm-secondary {
+    background: #fff8e9;
+  }
+
+  .forge-confirm-primary:hover,
+  .forge-confirm-secondary:hover {
+    transform: translateY(-1px);
+    box-shadow: 3px 4px 0 rgba(18, 16, 15, 0.28);
+  }
+
+  .forge-confirm-primary:active,
+  .forge-confirm-secondary:active {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0 rgba(18, 16, 15, 0.32);
+  }
+
+  .forge-confirm-primary:disabled,
+  .forge-confirm-secondary:disabled {
+    cursor: not-allowed;
+    opacity: 0.62;
+    transform: none;
+  }
+
+  .outline-required-dialog {
+    width: min(560px, calc(100vw - 42px));
+  }
+
+  .outline-required-actions {
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .materials-arrange-dialog {
+    width: min(560px, calc(100vw - 42px));
+  }
+
+  .materials-arrange-body {
+    gap: 12px;
+  }
+
+  .materials-choice-card {
+    width: 100%;
+    padding: 13px 14px;
+    border: 2px solid #12100f;
+    border-radius: 8px;
+    background: #fff8e9;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    text-align: left;
+    box-shadow: 3px 3px 0 rgba(18, 16, 15, 0.18);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+
+  .materials-choice-card.selected {
+    border-color: #12100f;
+    background: #eaffbd;
+    box-shadow: 4px 4px 0 rgba(18, 16, 15, 0.28);
+  }
+
+  .materials-choice-card strong,
+  .materials-choice-card small {
+    display: block;
+  }
+
+  .materials-choice-card strong {
+    font-size: 15px;
+    line-height: 1.25;
+    font-weight: 1000;
+  }
+
+  .materials-choice-card small {
+    margin-top: 3px;
+    color: rgba(18, 16, 15, 0.72);
+    font-size: 12.5px;
+    line-height: 1.45;
+    font-weight: 850;
+  }
+
+  .materials-choice-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 4px 4px 0 rgba(18, 16, 15, 0.2);
+  }
+
+  .materials-choice-card:active {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0 rgba(18, 16, 15, 0.22);
+  }
+
+  .materials-choice-card:disabled {
+    cursor: not-allowed;
+    opacity: 0.62;
+    transform: none;
+  }
+
   .provider-config-dialog {
     width: min(680px, calc(100vw - 42px));
     height: min(650px, calc(100vh - 42px));
@@ -629,7 +853,8 @@
     font-weight: 1000;
   }
 
-  .provider-config-fields input {
+  .provider-config-fields input,
+  .provider-config-fields select {
     height: 30px;
     border: 2px solid rgba(18, 16, 15, 0.5);
     border-radius: 6px;
@@ -640,9 +865,74 @@
     font-weight: 850;
   }
 
+  .provider-config-fields input:-webkit-autofill,
+  .provider-config-fields input:-webkit-autofill:hover,
+  .provider-config-fields input:-webkit-autofill:focus {
+    -webkit-text-fill-color: rgba(18, 16, 15, 0.72);
+    box-shadow: 0 0 0 1000px #fff8e9 inset;
+    transition: background-color 9999s ease-out;
+  }
+
   .provider-config-actions {
     margin-top: 12px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: stretch;
+    gap: 12px;
   }
+
+  .provider-config-action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+  }
+
+  .provider-config-feedback {
+    min-height: 34px;
+    margin: 0;
+    padding: 7px 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: rgba(18, 16, 15, 0.78);
+    display: flex;
+    align-items: center;
+    font-size: 11.5px;
+    line-height: 1.35;
+    font-weight: 900;
+  }
+
+  .provider-config-feedback.error {
+    background: transparent;
+    color: #9f1239;
+  }
+
+  .provider-config-advanced {
+    margin-top: 12px;
+    padding-top: 9px;
+    border-top: 2px dashed rgba(18, 16, 15, 0.36);
+  }
+
+  .provider-config-advanced > strong {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 8px;
+    font-size: 12.5px;
+    font-weight: 1000;
+  }
+
+  .provider-config-advanced > strong span {
+    color: rgba(18, 16, 15, 0.62);
+    font-size: 11.5px;
+    font-weight: 850;
+  }
+
+  .provider-config-advanced-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
 
   .provider-config-action-button {
     min-height: 34px;
@@ -1170,7 +1460,7 @@
   .file-row {
     min-height: 25.5px;
     display: grid;
-    grid-template-columns: 27px minmax(0, 1fr) 48px 40px;
+    grid-template-columns: 27px minmax(0, 1fr) 48px 40px 24px;
     align-items: center;
     gap: 6px;
     font-size: 11.7px;
@@ -1200,6 +1490,123 @@
   .file-date {
     text-align: right;
     color: rgba(18, 16, 15, 0.78);
+  }
+
+  .file-delete-button {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 2px solid #12100f;
+    border-radius: 4px;
+    background: #ffe1ef;
+    display: inline-grid;
+    place-items: center;
+    opacity: 0.28;
+    transition: opacity 0.12s ease, transform 0.12s ease;
+  }
+
+  .file-row:hover .file-delete-button,
+  .file-delete-button:focus-visible {
+    opacity: 1;
+  }
+
+  .file-delete-button:active {
+    transform: translate(1px, 1px);
+  }
+
+  .project-empty-state {
+    min-height: 90px;
+    padding: 14px 12px;
+    border: 2px dashed rgba(18, 16, 15, 0.42);
+    border-radius: 7px;
+    background: rgba(255, 248, 233, 0.58);
+    display: grid;
+    place-items: center;
+    text-align: center;
+    gap: 4px;
+  }
+
+  .project-empty-state strong {
+    font-size: 13px;
+    font-weight: 1000;
+  }
+
+  .project-empty-state span {
+    color: rgba(18, 16, 15, 0.66);
+    font-size: 11.5px;
+    line-height: 1.4;
+    font-weight: 850;
+  }
+
+  .project-file-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 38px 38px;
+    gap: 7px;
+  }
+
+  .project-file-actions .pixel-button {
+    min-width: 0;
+    padding-left: 7px;
+    padding-right: 7px;
+    white-space: nowrap;
+  }
+
+  .project-icon-action {
+    align-items: center;
+    background: rgba(255, 255, 255, 0.8);
+    border: 2px solid #12100f;
+    border-radius: 7px;
+    box-shadow: 2px 2px 0 #12100f;
+    color: #12100f;
+    display: inline-flex;
+    height: 38px;
+    justify-content: center;
+    min-width: 0;
+    transition:
+      transform 0.12s ease,
+      box-shadow 0.12s ease,
+      background 0.12s ease;
+    width: 38px;
+  }
+
+  .project-icon-action:hover {
+    background: #fff8df;
+  }
+
+  .project-icon-action:active {
+    box-shadow: none;
+    transform: translate(1px, 1px);
+  }
+
+  .project-materials-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 38px;
+    gap: 7px;
+    margin-top: 7px;
+  }
+
+  .project-materials-button {
+    min-width: 0;
+  }
+
+  .project-confirm-materials-button {
+    margin-top: 7px;
+  }
+
+  .project-confirm-materials-button.confirmed {
+    background: #d8aee5;
+  }
+
+  .project-confirm-materials-button.confirmed:hover {
+    background: #d8aee5;
+  }
+
+  .project-upload-message {
+    margin: 7px 0 0;
+    color: rgba(18, 16, 15, 0.68);
+    font-size: 11.5px;
+    line-height: 1.35;
+    font-weight: 850;
   }
 
   .quality-panel {

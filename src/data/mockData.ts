@@ -1,4 +1,4 @@
-export type ProjectFileType = "PDF" | "DOCX" | "XLSX";
+export type ProjectFileType = "PDF" | "DOCX" | "XLSX" | "MD" | "TXT" | "OTHER";
 
 export interface ProjectFile {
   id: string;
@@ -6,6 +6,10 @@ export interface ProjectFile {
   type: ProjectFileType;
   size: string;
   date: string;
+  bytes?: number;
+  path?: string;
+  status?: string;
+  uploadedAt?: string;
 }
 
 export interface QualityMetric {
@@ -30,15 +34,10 @@ export interface RiskItem {
 export const mockData = {
   project: {
     id: "bidforge-demo-project",
-    name: "绵阳高新区重卡智能制造产业园基础设施项目",
-    code: "BIDFORGE-MVP-001",
+    name: "当前项目工作区",
+    code: "BIDFORGE-LOCAL",
     status: "进行中",
-    files: [
-      { id: "file-1", name: "01_招标文件.pdf", type: "PDF", size: "1.2 MB", date: "06-10" },
-      { id: "file-2", name: "02_投标文件大纲.docx", type: "DOCX", size: "0.8 MB", date: "06-10" },
-      { id: "file-3", name: "03_评分标准.xlsx", type: "XLSX", size: "0.6 MB", date: "06-10" },
-      { id: "file-4", name: "04_候选精简稿.docx", type: "DOCX", size: "1.1 MB", date: "06-10" },
-    ] satisfies ProjectFile[],
+    files: [] satisfies ProjectFile[],
   },
   quality: {
     score: 86,
@@ -53,8 +52,8 @@ export const mockData = {
   draft: {
     section: "5.1 建筑设计",
     paragraphs: [
-      "当前为第一阶段 MVP 演示草稿。选择章节并点击“生成精简稿”后，前台将调用 mock runner 返回 Markdown，并在此处预览结果。",
-      "本阶段不接真实 AI Runner，不读取本地文件系统，不写入 runs 目录，也不进入 Production 或 Production RC。",
+      "当前支持 Direct Forge 与 Agent Pack 两种前台模式。Direct Forge 会在用户确认后调用本机配置的 API，Agent Pack 会生成可交给外部 Agent 执行的任务包。",
+      "请选择章节和模式后点击生成，结果将在此处预览。当前仍不进入 Production 或 Production RC。",
     ],
     wordCount: "0",
     autosaveTime: "未生成",
@@ -62,8 +61,8 @@ export const mockData = {
     spellStatus: "待生成",
   },
   assistant: {
-    message: "第一阶段 MVP 已准备接入 mock runner，可先验证生成、预览和下载闭环。",
-    actions: ["生成精简稿", "查看状态", "下载 Markdown"],
+    message: "Direct Forge / Agent Pack 已就绪，可先生成任务包，或配置 API 后进行单小节真实生成。",
+    actions: ["生成任务包", "配置 API", "读取结果"],
   },
   chapters: [
     { id: "1.1", title: "工程概述", status: "已完成", progress: 100 },
@@ -79,7 +78,7 @@ export const mockData = {
   statusBar: {
     workspace: "BIDFORGE 工作台",
     currentProject: "绵阳高新区重卡智能制造产业园基础设施项目",
-    autosave: "mock runner 待触发",
+    autosave: "等待生成",
     fileCount: 4,
     chapterCount: 18,
     riskCount: 2,

@@ -14,6 +14,19 @@ import {
   setDefaultProviderPlaceholder,
   testOpenAiCompatibleConnection,
 } from "./services/providerConfig.js";
+import { deleteProjectFile, listProjectFiles, openProjectInputFolder, saveProjectFile } from "./services/projectFiles.js";
+import {
+  buildProjectMaterials,
+  confirmProjectMaterials,
+  getProjectMaterialsStatus,
+  openProjectMaterialsFolder,
+  refineProjectMaterials,
+} from "./services/projectMaterials.js";
+import {
+  buildProjectOutlineFromUpload,
+  generateProjectOutlineWithApi,
+  getProjectOutlineStatus,
+} from "./services/projectOutline.js";
 import { readRunDraftResult } from "./services/runResultReader.js";
 import { getRunnerStatus } from "./services/runnerStatus.js";
 import { loadLocalEnv } from "./utils/loadLocalEnv.js";
@@ -28,6 +41,7 @@ const port = Number(envPort ?? 8787);
 
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
+const uploadFileBody = express.raw({ limit: "100mb", type: "application/octet-stream" });
 
 function validateRunInput(input) {
   if (!input || typeof input !== "object") {
@@ -95,6 +109,165 @@ app.get("/api/runs/result", async (req, res) => {
     res.status(error.statusCode ?? 500).json({
       status: "failed",
       error: error instanceof Error ? error.message : "读取 Codex 结果失败。",
+    });
+  }
+});
+
+app.get("/api/projects/:projectId/files", async (req, res) => {
+  try {
+    res.json(await listProjectFiles(req.params.projectId));
+  } catch (error) {
+    console.error(error);
+    res.status(error.statusCode ?? 500).json({
+      status: "failed",
+      error: error instanceof Error ? error.message : "项目文件读取失败。",
+    });
+  }
+});
+
+app.post("/api/projects/:projectId/files", uploadFileBody, async (req, res) => {
+  try {
+    const originalName = typeof req.query.fileName === "string" ? req.query.fileName : "";
+    res.json(
+      await saveProjectFile({
+        projectId: req.params.projectId,
+        originalName,
+        buffer: req.body,
+      }),
+    );
+  } catch (error) {
+    console.error(error);
+    res.status(error.statusCode ?? 500).json({
+      status: "failed",
+      error: error instanceof Error ? error.message : "项目文件上传失败。",
+    });
+  }
+});
+
+app.delete("/api/projects/:projectId/files/:fileId", async (req, res) => {
+  try {
+    res.json(
+      await deleteProjectFile({
+        projectId: req.params.projectId,
+        fileId: req.params.fileId,
+      }),
+    );
+  } catch (error) {
+    console.error(error);
+    res.status(error.statusCode ?? 500).json({
+      status: "failed",
+      error: error instanceof Error ? error.message : "项目文件删除失败。",
+    });
+  }
+});
+
+app.post("/api/projects/:projectId/input-folder/open", async (req, res) => {
+  try {
+    res.json(await openProjectInputFolder(req.params.projectId));
+  } catch (error) {
+    console.error(error);
+    res.status(error.statusCode ?? 500).json({
+      status: "failed",
+      error: error instanceof Error ? error.message : "项目文件夹打开失败。",
+    });
+  }
+});
+
+app.post("/api/projects/:projectId/materials/build", async (req, res) => {
+  try {
+    res.json(await buildProjectMaterials(req.params.projectId));
+  } catch (error) {
+    console.error(error);
+    res.status(error.statusCode ?? 500).json({
+      status: "failed",
+      error: error instanceof Error ? error.message : "项目资料整理失败。",
+    });
+  }
+});
+
+app.post("/api/projects/:projectId/materials/refine", async (req, res) => {
+  try {
+    res.json(await refineProjectMaterials(req.params.projectId));
+  } catch (error) {
+    console.error(error);
+    res.status(error.statusCode ?? 500).json({
+      status: "failed",
+      error: error instanceof Error ? error.message : "AI 资料精炼失败。",
+      detail: error.detail,
+    });
+  }
+});
+
+app.get("/api/projects/:projectId/materials/status", async (req, res) => {
+  try {
+    res.json(await getProjectMaterialsStatus(req.params.projectId));
+  } catch (error) {
+    console.error(error);
+    res.status(error.statusCode ?? 500).json({
+      status: "failed",
+      error: error instanceof Error ? error.message : "资料状态读取失败。",
+    });
+  }
+});
+
+app.post("/api/projects/:projectId/materials/confirm", async (req, res) => {
+  try {
+    res.json(await confirmProjectMaterials(req.params.projectId));
+  } catch (error) {
+    console.error(error);
+    res.status(error.statusCode ?? 500).json({
+      status: "failed",
+      error: error instanceof Error ? error.message : "资料确认失败。",
+    });
+  }
+});
+
+app.post("/api/projects/:projectId/materials-folder/open", async (req, res) => {
+  try {
+    res.json(await openProjectMaterialsFolder(req.params.projectId));
+  } catch (error) {
+    console.error(error);
+    res.status(error.statusCode ?? 500).json({
+      status: "failed",
+      error: error instanceof Error ? error.message : "资料文件夹打开失败。",
+    });
+  }
+});
+
+app.get("/api/projects/:projectId/outline/status", async (req, res) => {
+  try {
+    res.json(await getProjectOutlineStatus(req.params.projectId));
+  } catch (error) {
+    console.error(error);
+    res.status(error.statusCode ?? 500).json({
+      status: "failed",
+      error: error instanceof Error ? error.message : "章节大纲状态读取失败。",
+    });
+  }
+});
+
+app.post("/api/projects/:projectId/outline/build-from-upload", async (req, res) => {
+  try {
+    res.json(await buildProjectOutlineFromUpload(req.params.projectId));
+  } catch (error) {
+    console.error(error);
+    res.status(error.statusCode ?? 500).json({
+      status: "failed",
+      error: error instanceof Error ? error.message : "章节大纲读取失败。",
+      reason: error.reason,
+    });
+  }
+});
+
+app.post("/api/projects/:projectId/outline/generate", async (req, res) => {
+  try {
+    res.json(await generateProjectOutlineWithApi(req.params.projectId));
+  } catch (error) {
+    console.error(error);
+    res.status(error.statusCode ?? 500).json({
+      status: "failed",
+      error: error instanceof Error ? error.message : "章节大纲生成失败。",
+      detail: error.detail,
     });
   }
 });

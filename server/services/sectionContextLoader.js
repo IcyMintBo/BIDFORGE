@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { safeFileName } from "../utils/safeFileName.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "../..");
@@ -81,9 +82,106 @@ async function loadSourceMaterials(relativePath, factSummaries) {
   }
 }
 
+function getProjectSourceMaterialPaths(projectId) {
+  if (!projectId) {
+    return [];
+  }
+
+  const projectDir = path.posix.join("projects", safeFileName(projectId, "project"), "materials");
+  return [
+    path.posix.join(projectDir, "source_materials_refined.md"),
+    path.posix.join(projectDir, "source_materials.md"),
+    path.posix.join(projectDir, "raw_extract.md"),
+  ];
+}
+
+function deriveFactSummariesFromMaterials(content) {
+  const facts = [];
+  const seen = new Set();
+  let inFactSection = false;
+  let inEvidenceTable = false;
+
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (line.startsWith("## ")) {
+      inFactSection = line.includes("可用事实摘录") || line.includes("项目基本信息") || line.includes("工程规模") || line.includes("招标范围");
+      inEvidenceTable = line.includes("证据索引");
+      continue;
+    }
+
+    if (inEvidenceTable && line.startsWith("|") && !line.includes("---")) {
+      const cells = line
+        .split("|")
+        .map((cell) => cell.trim())
+        .filter(Boolean);
+      const fact = cells.length >= 2 ? cells[1] : "";
+      if (fact && fact !== "事实" && !seen.has(fact)) {
+        seen.add(fact);
+        facts.push(fact);
+      }
+      if (facts.length >= 80) {
+        break;
+      }
+      continue;
+    }
+
+    if (!inFactSection || !line.startsWith("- ")) {
+      continue;
+    }
+
+    const fact = line.replace(/^-\s+/, "").trim();
+    if (!fact || seen.has(fact)) {
+      continue;
+    }
+
+    seen.add(fact);
+    facts.push(fact);
+    if (facts.length >= 80) {
+      break;
+    }
+  }
+
+  return facts;
+}
+
+async function loadProjectSourceMaterials(input) {
+  const relativePaths = getProjectSourceMaterialPaths(input.projectId);
+  if (relativePaths.length === 0) {
+    return {
+      status: "missing",
+      path: "",
+      charCount: 0,
+      content: "",
+      factSummaries: [],
+    };
+  }
+
+  let lastMissing = null;
+
+  for (const relativePath of relativePaths) {
+    const sourceMaterials = await loadSourceMaterials(relativePath, []);
+    if (sourceMaterials.status !== "loaded") {
+      lastMissing = sourceMaterials;
+      continue;
+    }
+
+    return {
+      ...sourceMaterials,
+      factSummaries: deriveFactSummariesFromMaterials(sourceMaterials.content),
+    };
+  }
+
+  return lastMissing;
+}
+
 export async function loadSectionContext(input) {
+  const projectSourceMaterials = await loadProjectSourceMaterials(input);
+
   if (input.sectionId === "5.1") {
-    const sourceMaterials = await loadSourceMaterials(architectureSourceMaterialsPath, architectureFactSummaries);
+    const sourceMaterials =
+      projectSourceMaterials.status === "loaded"
+        ? projectSourceMaterials
+        : await loadSourceMaterials(architectureSourceMaterialsPath, architectureFactSummaries);
 
     return {
       sectionOutline: {
@@ -92,6 +190,18 @@ export async function loadSectionContext(input) {
         directoryFidelityRequired: true,
       },
       sourceMaterials,
+      targetWordCountHint: buildTargetWordCountHint(input.mode),
+    };
+  }
+
+  if (projectSourceMaterials.status === "loaded") {
+    return {
+      sectionOutline: {
+        title: `${input.sectionId} ${input.sectionTitle}`,
+        items: [],
+        directoryFidelityRequired: false,
+      },
+      sourceMaterials: projectSourceMaterials,
       targetWordCountHint: buildTargetWordCountHint(input.mode),
     };
   }

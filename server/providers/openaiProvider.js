@@ -1,7 +1,8 @@
+import { normalizeOpenAiCompatibleBaseUrl } from "../utils/openAiCompatibleBaseUrl.js";
+
 export const providerName = "OpenAI-Compatible API Provider";
 export const modelName = "openai-compatible";
-
-const defaultBaseUrl = "https://api.openai.com/v1";
+const directForgeTimeoutMs = 120000;
 
 function getApiKey() {
   return (
@@ -14,7 +15,7 @@ function getApiKey() {
 }
 
 function normalizeBaseUrl(value) {
-  return String(value || defaultBaseUrl).replace(/\/+$/, "");
+  return normalizeOpenAiCompatibleBaseUrl(value);
 }
 
 function getRuntimeConfig(context) {
@@ -25,14 +26,14 @@ function getRuntimeConfig(context) {
       process.env.BIDFORGE_API_BASE_URL ||
         process.env.BIDFORGE_OPENAI_COMPATIBLE_BASE_URL ||
         input.baseUrl ||
-        defaultBaseUrl,
+        "",
     ),
     apiKey: getApiKey(),
     model:
       process.env.BIDFORGE_API_MODEL ||
       process.env.BIDFORGE_OPENAI_COMPATIBLE_MODEL ||
       input.model ||
-      "gpt-4.1-mini",
+      "",
     maxOutputTokens: Number(
       process.env.BIDFORGE_API_MAX_OUTPUT_TOKENS ||
         process.env.BIDFORGE_OPENAI_COMPATIBLE_MAX_OUTPUT_TOKENS ||
@@ -63,6 +64,24 @@ function createProviderError(message, rawMeta = {}, statusCode = 500) {
   return error;
 }
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function isAbortError(error) {
+  return error?.name === "AbortError";
+}
+
 function getResponseContent(payload) {
   const chatContent = payload?.choices?.[0]?.message?.content;
   if (typeof chatContent === "string") {
@@ -91,9 +110,25 @@ function getResponseContent(payload) {
   return "";
 }
 
+function explainHttpStatus(status) {
+  if (status === 400) return "请求参数不正确，请检查 Base URL、Model 或接口兼容性。";
+  if (status === 401) return "API Key 无效或未被服务商接受。";
+  if (status === 403) return "API Key 权限不足，或当前模型/接口不可用。";
+  if (status === 404) return "接口路径或模型不存在，请检查 Base URL 是否应以 /v1 结尾。";
+  if (status === 408) return "请求超时，请稍后重试。";
+  if (status === 429) return "请求被限流、额度不足或当前模型繁忙。";
+  if (status === 500) return "服务商内部错误。";
+  if (status === 502) return "服务商网关错误或上游模型不可用。";
+  if (status === 503) return "服务商暂时不可用，可能正在维护或过载。";
+  if (status === 504) return "服务商响应超时。";
+  if (status >= 500) return "模型服务暂时不可用，请稍后重试或切换模型。";
+  return "API 请求失败，请检查配置。";
+}
+
 function sanitizeApiError(status, bodyText) {
   const body = String(bodyText ?? "").replace(/\s+/g, " ").slice(0, 500);
-  return body ? `API 请求失败：HTTP ${status}。${body}` : `API 请求失败：HTTP ${status}。`;
+  const hint = explainHttpStatus(status);
+  return body ? `API 请求失败：HTTP ${status}。${hint} 服务商返回：${body}` : `API 请求失败：HTTP ${status}。${hint}`;
 }
 
 export async function generateCompactSection(context) {
@@ -160,7 +195,7 @@ export async function generateCompactSection(context) {
   let bodyText = "";
 
   try {
-    response = await fetch(endpoint, {
+    response = await fetchWithTimeout(endpoint, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
@@ -183,7 +218,7 @@ export async function generateCompactSection(context) {
         max_tokens: config.maxOutputTokens,
         stream: false,
       }),
-    });
+    }, directForgeTimeoutMs);
 
     bodyText = await response.text();
     try {
@@ -192,6 +227,24 @@ export async function generateCompactSection(context) {
       payload = undefined;
     }
   } catch (error) {
+    if (isAbortError(error)) {
+      throw createProviderError(
+        `Direct Forge API 请求超时（${Math.round(directForgeTimeoutMs / 1000)} 秒），请稍后重试，或降低 max_output_tokens / 更换模型。`,
+        {
+          realAi: true,
+          apiCalled: true,
+          modelName: config.model,
+          keyConfigured: true,
+          baseUrlConfigured: true,
+          maxOutputTokens: config.maxOutputTokens,
+          temperature: config.temperature,
+          timedOut: true,
+          timeoutMs: directForgeTimeoutMs,
+        },
+        504,
+      );
+    }
+
     throw createProviderError(
       error instanceof Error ? `API 请求失败：${error.message}` : "API 请求失败。",
       {

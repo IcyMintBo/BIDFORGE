@@ -112,6 +112,17 @@ export interface OpenAiProviderTestResult {
     totalTokens?: number | null;
   };
   outputPreview: string;
+  tokenLimitParam?: "max_tokens" | "max_completion_tokens" | string;
+  requestPayloadDebug?: {
+    model?: string;
+    messages?: Array<{
+      role: string;
+      content: string;
+    }>;
+    max_tokens?: number;
+    max_completion_tokens?: number;
+    stream?: boolean;
+  };
   message: string;
 }
 

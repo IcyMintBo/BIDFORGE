@@ -237,6 +237,12 @@ function renderSelectedProviderPanel(
   }
 
   if (selectedProvider === "local_openai" || selectedProvider === "openai_compatible") {
+    const feedbackMessage =
+      [openAiSaveMessage, openAiModelsMessage, openAiTestMessage].filter(Boolean).join(" ｜ ") || openai.message;
+    const feedbackIsError = [openAiSaveMessage, openAiModelsMessage, openAiTestMessage].some(
+      (message) => message.includes("失败") || message.includes("HTTP") || message.includes("未配置") || message.includes("超时"),
+    );
+
     return (
       <article className="system-panel-card provider-config-detail-card">
         <h3>OpenAI-Compatible API Provider</h3>
@@ -247,22 +253,25 @@ function renderSelectedProviderPanel(
             <strong>{openai.keyConfigured ? "已配置" : "未配置"}</strong>
           </div>
           <label>
-            <span>API Key</span>
+            <span>Base URL</span>
             <input
               autoComplete="off"
+              name="bidforge-api-base-url"
+              onChange={(event) => onOpenAiFormChange({ baseUrl: event.target.value })}
+              placeholder="例如 https://api.xxx.com/v1"
+              type="text"
+              value={openAiForm.baseUrl}
+            />
+          </label>
+          <label>
+            <span>API Key</span>
+            <input
+              autoComplete="new-password"
+              name="bidforge-api-key"
               onChange={(event) => onOpenAiFormChange({ apiKey: event.target.value })}
               placeholder={openai.keyConfigured ? "留空则沿用当前 Key" : "粘贴你的本地 API Key"}
               type="password"
               value={openAiForm.apiKey}
-            />
-          </label>
-          <label>
-            <span>Base URL</span>
-            <input
-              onChange={(event) => onOpenAiFormChange({ baseUrl: event.target.value })}
-              placeholder="https://api.openai.com/v1"
-              type="text"
-              value={openAiForm.baseUrl}
             />
           </label>
           <label>
@@ -276,50 +285,58 @@ function renderSelectedProviderPanel(
                 ))}
               </select>
             ) : (
-              <input onChange={(event) => onOpenAiFormChange({ model: event.target.value })} placeholder="gpt-4.1-mini" type="text" value={openAiForm.model} />
+              <input
+                autoComplete="off"
+                name="bidforge-api-model"
+                onChange={(event) => onOpenAiFormChange({ model: event.target.value })}
+                placeholder="先获取模型列表，或手动填写模型名"
+                type="text"
+                value={openAiForm.model}
+              />
             )}
-          </label>
-          <label>
-            <span>max_output_tokens</span>
-            <input
-              min={1}
-              onChange={(event) => onOpenAiFormChange({ maxOutputTokens: event.target.value })}
-              type="number"
-              value={openAiForm.maxOutputTokens}
-            />
-          </label>
-          <label>
-            <span>temperature</span>
-            <input
-              max={2}
-              min={0}
-              onChange={(event) => onOpenAiFormChange({ temperature: event.target.value })}
-              step={0.1}
-              type="number"
-              value={openAiForm.temperature}
-            />
           </label>
         </div>
         <div className="provider-config-actions">
-          <button className="provider-config-action-button" disabled={openAiModelsLoading} onClick={onFetchOpenAiModels} type="button">
-            {openAiModelsLoading ? "获取中……" : "获取模型列表"}
-          </button>
-          <button className="provider-config-action-button" disabled={openAiTesting} onClick={onTestOpenAiConnection} type="button">
-            {openAiTesting ? "测试中……" : "测试连接"}
-          </button>
-          <button className="provider-config-action-button" disabled={openAiSaving} onClick={onSaveOpenAiConfig} type="button">
-            {openAiSaving ? "保存中……" : "保存本地配置"}
-          </button>
+          <div className="provider-config-action-buttons">
+            <button className="provider-config-action-button" disabled={openAiModelsLoading} onClick={onFetchOpenAiModels} type="button">
+              {openAiModelsLoading ? "获取中……" : "获取模型列表"}
+            </button>
+            <button className="provider-config-action-button" disabled={openAiTesting} onClick={onTestOpenAiConnection} type="button">
+              {openAiTesting ? "测试中……" : "测试连接"}
+            </button>
+            <button className="provider-config-action-button" disabled={openAiSaving} onClick={onSaveOpenAiConfig} type="button">
+              {openAiSaving ? "保存中……" : "保存本地配置"}
+            </button>
+          </div>
+          <p className={`provider-config-feedback ${feedbackIsError ? "error" : ""}`}>{feedbackMessage}</p>
         </div>
-        <p
-          className={
-            [openAiSaveMessage, openAiModelsMessage, openAiTestMessage].some((message) => message.includes("失败") || message.includes("HTTP"))
-              ? "provider-config-error"
-              : "provider-config-note"
-          }
-        >
-          {[openAiSaveMessage, openAiModelsMessage, openAiTestMessage].filter(Boolean).join(" ｜ ") || openai.message}
-        </p>
+        <div className="provider-config-advanced">
+          <strong>
+            高级设置 <span>（看不懂就不改）</span>
+          </strong>
+          <div className="provider-config-fields provider-config-advanced-fields">
+            <label>
+              <span>max_output_tokens</span>
+              <input
+                min={1}
+                onChange={(event) => onOpenAiFormChange({ maxOutputTokens: event.target.value })}
+                type="number"
+                value={openAiForm.maxOutputTokens}
+              />
+            </label>
+            <label>
+              <span>temperature</span>
+              <input
+                max={2}
+                min={0}
+                onChange={(event) => onOpenAiFormChange({ temperature: event.target.value })}
+                step={0.1}
+                type="number"
+                value={openAiForm.temperature}
+              />
+            </label>
+          </div>
+        </div>
       </article>
     );
   }
@@ -406,7 +423,8 @@ function renderRunnerStatusContent(runnerState: RunnerStatusState) {
       <article className="system-panel-card">
         <h3>阶段边界</h3>
         <ul>
-          <li>当前未接真实 AI</li>
+          <li>Direct Forge：需配置本机 API，用户确认后才调用</li>
+          <li>Agent Pack：生成任务包，不调用 API</li>
           <li>当前未解析 PDF/DOCX</li>
           <li>当前未进入 Production</li>
           <li>当前未进入 Production RC</li>
@@ -458,8 +476,8 @@ function renderProviderConfigContent(
           <h3>Provider 配置状态</h3>
           <ul>
             <li>正在读取 Provider 配置中心……</li>
-            <li>默认 Provider：Mock</li>
-            <li>当前仍不接真实 AI</li>
+            <li>Direct Forge：读取本机 API 配置后可用</li>
+            <li>Agent Pack：无需 API，可生成任务包</li>
           </ul>
         </article>
       </div>
@@ -511,9 +529,9 @@ export function SystemPanelDialog({ kind, onClose }: SystemPanelDialogProps) {
   const [selectedProvider, setSelectedProvider] = useState<ProviderConfigId>("openai_compatible");
   const [codexChecking, setCodexChecking] = useState(false);
   const [openAiForm, setOpenAiForm] = useState<OpenAiConfigForm>({
-    baseUrl: "https://api.openai.com/v1",
+    baseUrl: "",
     apiKey: "",
-    model: "gpt-4.1-mini",
+    model: "",
     maxOutputTokens: "1000",
     temperature: "0.4",
   });
@@ -758,7 +776,7 @@ export function SystemPanelDialog({ kind, onClose }: SystemPanelDialogProps) {
     fetchOpenAiProviderModels(createOpenAiConfigInput())
       .then((result) => {
         setOpenAiModels(result.models);
-        setOpenAiModelsMessage(`${result.message}（${result.durationMs}ms）`);
+        setOpenAiModelsMessage(`${result.message}（模型列表获取耗时：${result.durationMs}ms）`);
         setOpenAiForm((current) => {
           if (result.models.some((model) => model.id === current.model)) {
             return current;
@@ -785,8 +803,7 @@ export function SystemPanelDialog({ kind, onClose }: SystemPanelDialogProps) {
 
     testOpenAiProviderConnection(createOpenAiConfigInput())
       .then((result) => {
-        const tokenText = typeof result.usage.totalTokens === "number" ? `，tokens：${result.usage.totalTokens}` : "";
-        setOpenAiTestMessage(`${result.message}（${result.durationMs}ms${tokenText}）`);
+        setOpenAiTestMessage(result.message.includes("非空内容") ? "测试成功，模型返回了非空内容。" : "测试成功。");
       })
       .catch((error) => {
         setOpenAiTestMessage(error instanceof Error ? `测试失败：${error.message}` : "测试失败：接口异常。");

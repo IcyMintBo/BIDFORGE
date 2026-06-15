@@ -21,3 +21,5 @@ bidforge-*.png
 bidforge-screenshot*.png
 runs/*
 !runs/.gitkeep
+projects/*
+!projects/.gitkeep
